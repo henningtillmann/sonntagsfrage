@@ -1,9 +1,12 @@
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: light-gray; icon-glyph: chart-bar;
 /************************************************
 
 Sonntagsfrage iOS Widget
 von Henning Tillmann, henning-tillmann.de
-v1.0.0
-26. November 2020
+v1.0.1
+29. November 2020
 
 GitHub für Updates:
 https://github.com/henningtillmann/sonntagsfrage
@@ -165,8 +168,8 @@ AB HIER NICHTS ÄNDERN!
 (AUSSER DU WEISST, WAS DU TUST.)
 *************************************************/
 
-const api = 'https://api.dawum.de/';
-const version = '1.0.0';
+const api = 'https://api.dawum.de/newest_surveys.json';
+const version = '1.0.1';
 
 const parties = [
       { "id": "0", "name": "Sonstige", "color": "#bbbbbb" },
@@ -185,7 +188,7 @@ const parties = [
       { "id": "11", "name": "BP", "color": "#1313dd" },
       { "id": "13", "name": "Partei", "color": "#ee3333" },
       { "id": "14", "name": "BVB/FW", "color": "#ffa500" },
-      { "id": "15", "name": "Tierschutz", "color": "#005f6a" },
+      { "id": "15", "name": "Tier", "color": "#005f6a" },
       { "id": "16", "name": "BIW", "color": "#000088" }
     ];
   
