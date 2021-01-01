@@ -8,6 +8,8 @@
   - Mittelwert Bundestag: Berechne weiteren Mittelwert für Zeitfenster gleicher Länge vor dem aktuellen Zeitfenster. In den erweiterten Einstellungen kann definiert werden, ob nur die selben Institute zur Berechnung des Vergleichsmittelwerts verwendet werden sollen. Alternativ werden auch andere Institute einbezogen.
 - Zeige im Widget-Titel ein Durschnittszeichen, falls es sich um die Berechnung des Mittelwerts handelt.
 - Verbesserung der Darstellung beim kleinen Widget.
+- Mittleres / Großes Widget: Bei Mittelwert wird aus optischen Gründen immer eine Dezimalstelle angezeigt (16.0 statt 16).
+- Standardeinstellung: Update-Zeite von 8 auf 6 Stunden verkürzt.
 
 ## 1.0.1
 29. November 2020
