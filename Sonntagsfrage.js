@@ -5,8 +5,8 @@
 
 Sonntagsfrage iOS Widget
 von Henning Tillmann, henning-tillmann.de
-v1.0.1
-29. November 2020
+v2.0.0
+12. Januar 2021
 
 GitHub für Updates:
 https://github.com/henningtillmann/sonntagsfrage
@@ -104,6 +104,15 @@ const parliaments = [
       "EU-Parl."    // 17
      ];
 
+// Soll ein Pfeil neben den Umfragewerten stehen,
+// der den Trend zur letzten Umfrage anzeigt?
+// Wenn der Mittelwert angezeigt wird, wird
+// ein zweiter Mittelwert des gleichen Zeitraums
+// vor meanDaysAgoPoll berechnet.
+// Wenn false, ist Skript etwas schneller und es
+// werden etwas weniger Daten verbraucht.
+// Standard: true
+const showComparative = true;
 
 // Sollen bei der kleinen oder mittleren Ansicht
 // "Sonstige" Parteien ausgeblendet werden?
@@ -120,8 +129,8 @@ const meanDaysAgoPoll = 14;
 
 // Nach wieviel Stunden sollen frühstens neue Daten
 // abgerufen werden?
-// Standard: 8
-const refreshHours = 8;
+// Standard: 6
+const refreshHours = 6;
 
 
 /** *********************************/
@@ -144,7 +153,7 @@ const defaultParliament = '';
 // hier eintragen (nachzuschlagen auf api.dawum.de).
 // Ansonsten bei 0 belassen.
 // Standard: 0 (alle Institute verwenden)
-const instituteSelector = 0; 
+let instituteSelector = 0; 
 
 // Sollen nur Umfragen von einem bestimmten Auftraggeber
 // angezeigt werden? Wenn ja, dann die Tasker-Nummer
@@ -161,6 +170,15 @@ const taskerSelector = 0;
 // Standard: [] (kein Ausschluss)
 const meanExcludeInstitutes = [];
 
+/** FORTGESCHRITTEN: FÜR VERGLEICHS-MITTELWERT **/
+// Sollen bei der Berechnung des Vergleichsmittelwerts
+// nur die Institute einbezogen werden, die auch bei
+// der aktuellen Mittelwertberechnung benutzt werden?
+// Wenn ja, können beim Vergleichswert höchstens so
+// viele Umfragen benutzt werden, wie bei der aktuellen
+// Messung. Das Ergebnis ist aber vergleichbarer.
+// Standard: true
+const useSameInstitutesForComparison = true;
 
 
 /************************************************
@@ -168,8 +186,17 @@ AB HIER NICHTS ÄNDERN!
 (AUSSER DU WEISST, WAS DU TUST.)
 *************************************************/
 
-const api = 'https://api.dawum.de/newest_surveys.json';
-const version = '1.0.1';
+const apiCompact = 'https://api.dawum.de/newest_surveys.json';
+const apiFull = 'https://api.dawum.de/';
+const api = (showComparative ? apiFull : apiCompact);
+const version = '2.0.0';
+
+const deviationMarkers = [        
+      { maxVal: 0.5, glyphPos: '→', glyphNeg: '→' },
+      { maxVal: 2.0, glyphPos: '↗', glyphNeg: '↘' },
+      { maxVal: 3.5, glyphPos: '↑', glyphNeg: '↓' },
+      { maxVal: 999, glyphPos: '⇈', glyphNeg: '⇊' }
+    ];
 
 const parties = [
       { "id": "0", "name": "Sonstige", "color": "#bbbbbb" },
@@ -209,7 +236,6 @@ if (!config.runInWidget) {
     await widget.presentMedium();
   }
 }
-
 
 Script.setWidget(widget);
 Script.complete();
@@ -254,7 +280,10 @@ async function createWidget() {
     return list;    
   }
   
-  const headerText = (widgetSize == 'small' ? parliaments[poll.parliament_id] : 'Sonntagsfrage ' + parliaments[poll.parliament_id]);
+  let headerText = (widgetSize == 'small' ? parliaments[poll.parliament_id] : 'Sonntagsfrage ' + parliaments[poll.parliament_id]);
+  
+  if (poll.is_mean)
+    headerText += ' Ø';
   
   const header = list.addText(headerText);
   header.font = Font.blackSystemFont(16);
@@ -284,6 +313,9 @@ async function createWidget() {
   }
   
   bodyColumns[1] = body.addStack();
+
+  if (widgetSize == 'small')
+    body.addSpacer(10);
   
   bodyColumns[0].layoutVertically();
   bodyColumns[1].layoutVertically();
@@ -308,7 +340,9 @@ async function createWidget() {
     const bodyItem = bodyColumns[col].addStack(); 
     
     col++;
-    if (col > 1) col = 0;
+    if (col > 1) {
+      col = 0;
+    }
     
     bodyItem.layoutVertically();
     bodyItem.setPadding((widgetSize == 'large' ? 20 : 10), 0, 0, 0);
@@ -336,11 +370,11 @@ async function createWidget() {
     if (widgetSize != 'small') {
       bodyItemData.addSpacer();
     
-      const partyPercentage = bodyItemData.addText(v + ' %');
+      const partyPercentage = bodyItemData.addText((poll.is_mean ? v.toFixed(1) :  v) + ' %' + (poll.has_comparative ? ' ' + getDeviationMarker(v, parseFloat(poll.results[i][2])) : ''));
       partyPercentage.font = (widgetSize == "medium" ? Font.blackSystemFont(10) : Font.mediumSystemFont(14));
       partyPercentage.textColor = new Color(party.color);
     } else {
-      const partyPercentage = bodyItem.addText(v + ' %');
+      const partyPercentage = bodyItem.addText(v + ' %' + (poll.has_comparative ? ' ' + getDeviationMarker(v, parseFloat(poll.results[i][2])) : ''));
       partyPercentage.font = Font.blackSystemFont(9);
       partyPercentage.textColor = new Color(party.color);
     }
@@ -459,14 +493,23 @@ async function getPollData(parliament_ids) {
   let tasker_id;
   let institute_id;
   let parliament_id;
+  let results;
+  let pastResults;
   
   let calculateMean = false;
   let usedInstitutes = [];
+  let usedInstitutesComparative = [];
   let meanResults = [];
+  let meanResultsPast = [];
   let newestDate;
+  
+  let hasComparative = false;
 
   const meanOldestDate = new Date();
-  meanOldestDate.setDate(meanOldestDate.getDate() - meanDaysAgoPoll); 
+  meanOldestDate.setDate(meanOldestDate.getDate() - meanDaysAgoPoll);
+  
+  const meanOldestDateComparative = new Date();
+  meanOldestDateComparative.setDate(meanOldestDateComparative.getDate() - 2 * meanDaysAgoPoll);
 
   /* Easter Egg – Als die Welt noch in Ordnung war :-p. */
   if (parseInt(parliament_ids) === 1998) {
@@ -477,7 +520,8 @@ async function getPollData(parliament_ids) {
       "institute": 'Bundestagswahl 1998',
       "tasker": '',
       "parliament_id": 0,
-      "is_mean": false
+      "is_mean": false,
+      "has_comparative": false
     }
   }
   /* Ende Easter Egg */
@@ -497,6 +541,7 @@ async function getPollData(parliament_ids) {
   if (calculateMean) {
     for (k = 0; k < parties.length; k++) {
       meanResults[parties[k].id] = 0;
+      meanResultsPast[parties[k].id] = 0;
     }
   }
   
@@ -536,13 +581,39 @@ async function getPollData(parliament_ids) {
               }
             }           
           } else {
+            if (showComparative && dt >= meanOldestDateComparative) {
+              institute_id = data.Surveys[keys[i]].Institute_ID;
+              
+              if (usedInstitutesComparative.indexOf(institute_id) === -1 && (!useSameInstitutesForComparison || usedInstitutes.indexOf(institute_id) > -1)) {
+                usedInstitutesComparative.push(institute_id);
+                
+                const results = Object.entries(data.Surveys[keys[i]].Results);
+                
+                for (k = 0; k < results.length; k++) {
+                  meanResultsPast[parseInt(results[k][0])] += parseFloat(results[k][1]);  
+                }                               
+              }
+              
+              continue;
+            }
+           
             const results = [];
 
             for (k = 0; k < meanResults.length; k++) {
+              let p;
+                
+              if (showComparative && meanResultsPast[k]) {
+                p = meanResultsPast[k] / usedInstitutesComparative.length; 
+              }
+              
               if (meanResults[k]) {
                 const val = meanResults[k] / usedInstitutes.length;
-                results.push([k + '', Math.round(val  * 10) / 10]);  
-              } 
+                if (p) {
+                  results.push([k + '', Math.round(val  * 10) / 10, Math.round(p * 10) / 10]);  
+                } else {   
+                  results.push([k + '', Math.round(val  * 10) / 10]);  
+                }
+              }
             } 
             
             results.sort((a, b) => b[1] - a[1]);
@@ -551,42 +622,79 @@ async function getPollData(parliament_ids) {
               "date": newestDate,
               "results": results,
               "institute": usedInstitutes.length,
+              "comp_institute": usedInstitutesComparative.length,
               "tasker": '',
               "parliament_id": 0,
-              "is_mean": true
+              "is_mean": true,
+              "has_comparative": showComparative
             }
           }
         }
       } else {      
         if (parliament_ids === false || parliament_ids.indexOf(data.Surveys[keys[i]].Parliament_ID) > -1) {
-          date = data.Surveys[keys[i]].Date;
-        
           tasker_id = data.Surveys[keys[i]].Tasker_ID;
           institute_id = data.Surveys[keys[i]].Institute_ID;
-        
+          
           if (instituteSelector > 0 && instituteSelector != parseInt(institute_id)) {
             continue;
           }
-        
+          
           if (taskerSelector > 0 && taskerSelector != parseInt(tasker_id)) {
             continue;
           }
-        
-          parliament_id = parseInt(data.Surveys[keys[i]].Parliament_ID);
-        
-          const results = Object.entries(data.Surveys[keys[i]].Results);
-          results.sort((a, b) => b[1] - a[1]);
-        
+          
+          if (!results) {  
+            parliament_id = parseInt(data.Surveys[keys[i]].Parliament_ID);
+            
+            results = Object.entries(data.Surveys[keys[i]].Results);  
+            results.sort((a, b) => b[1] - a[1]);
+          
+            date = data.Surveys[keys[i]].Date;
+          
+            if (showComparative) {
+              parliament_ids = [data.Surveys[keys[i]].Parliament_ID];
+              if (parseInt(data.Surveys[keys[i]].Parliament_ID) === 0)
+                instituteSelector = parseInt(institute_id);
+              continue;
+            }
+          } else {
+            pastResults = Object.entries(data.Surveys[keys[i]].Results);
+            
+            for (let k = 0; k < results.length; k++) {
+              for (let l = 0; l < pastResults.length; l++) {
+                if (results[k][0] == pastResults[l][0]) {
+                  results[k][2] = pastResults[l][1];  
+                } 
+              }
+            }
+          }
+              
           return {
             "date": date,
             "results": results,
             "institute": data.Institutes[institute_id].Name,
             "tasker": data.Taskers[tasker_id].Name,
             "parliament_id": parliament_id,
-            "is_mean": false
+            "is_mean": false,
+            "has_comparative" : (pastResults ? true : false)
           }
         }
       }
     } 
   }
 }
+
+function getDeviationMarker(present, past) {      
+  for (let i = 0; i < deviationMarkers.length; i++) {
+    if (Math.abs(present - past) <= deviationMarkers[i].maxVal) {
+      if (present - past > 0) {
+        return deviationMarkers[i].glyphPos; 
+      } else {
+        return deviationMarkers[i].glyphNeg;
+      }
+    }  
+  }
+  return '*';
+}
+
+// Letzte Zeile.
