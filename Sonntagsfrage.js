@@ -5,8 +5,8 @@
 
 Sonntagsfrage iOS Widget
 von Henning Tillmann, henning-tillmann.de
-v2.0.0
-12. Januar 2021
+v2.0.1
+21. September 2021
 
 GitHub für Updates:
 https://github.com/henningtillmann/sonntagsfrage
@@ -200,13 +200,13 @@ const deviationMarkers = [
 
 const parties = [
       { "id": "0", "name": "Sonstige", "color": "#bbbbbb" },
-      { "id": "1", "name": "CDU/CSU", "color": "#999999" },
-      { "id": "101", "name": "CDU", "color": "#999999" },
-      { "id": "102", "name": "CSU", "color": "#999999" },
+      { "id": "1", "name": "CDU/CSU", "color": "#000000" },
+      { "id": "101", "name": "CDU", "color": "#000000" },
+      { "id": "102", "name": "CSU", "color": "#000000" },
       { "id": "2", "name": "SPD", "color": "#e0001a" },
       { "id": "3", "name": "FDP", "color": "#ccbc00" },
       { "id": "4", "name": "Grüne", "color": "#43b02a" },
-      { "id": "5", "name": "Linke", "color": "#ff0000" },
+      { "id": "5", "name": "Linke", "color": "#800080" },
       { "id": "6", "name": "Piraten", "color": "#ffa500" },
       { "id": "7", "name": "AfD", "color": "#8B4513" },
       { "id": "8", "name": "F.W.", "color": "#0000ff" },
