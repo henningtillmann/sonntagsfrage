@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1
+5. Januar 2022
+- Bugfix: Falsches Institut / Auftraggeber bei Nicht-Bundestagswahl-Umfragen wurde angezeigt. Es wurden die Daten der vorherigen Umfrage, nicht der aktuellen angezeigt.
+
 ## 2.0.0
 12. Januar 2021
 - Vergleichswerte: Zeige einen Pfeil neben dem aktuellen Wert, der anzeigt, ob Ergebnis gleich/ähnlich (+/- 0,5), leicht besser/schlechter (bis zu +/- 1.5), besser/schlechter (bis zu +/. 3.0) oder stark besser/schlechter (mehr als +/- 3.0) ist. Vergleichswerte können auch deaktiviert werden.
