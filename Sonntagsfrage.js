@@ -5,8 +5,8 @@
 
 Sonntagsfrage iOS Widget
 von Henning Tillmann, henning-tillmann.de
-v2.0.0
-12. Januar 2021
+v2.0.1
+5. Januar 2022
 
 GitHub für Updates:
 https://github.com/henningtillmann/sonntagsfrage
@@ -189,7 +189,7 @@ AB HIER NICHTS ÄNDERN!
 const apiCompact = 'https://api.dawum.de/newest_surveys.json';
 const apiFull = 'https://api.dawum.de/';
 const api = (showComparative ? apiFull : apiCompact);
-const version = '2.0.0';
+const version = '2.0.1';
 
 const deviationMarkers = [        
       { maxVal: 0.5, glyphPos: '→', glyphNeg: '→' },
@@ -490,8 +490,8 @@ async function createWidget() {
 async function getPollData(parliament_ids) {
   let data;
   let date;
-  let tasker_id;
-  let institute_id;
+  let tasker_id = -1;
+  let institute_id = -1;
   let parliament_id;
   let results;
   let pastResults;
@@ -632,14 +632,23 @@ async function getPollData(parliament_ids) {
         }
       } else {      
         if (parliament_ids === false || parliament_ids.indexOf(data.Surveys[keys[i]].Parliament_ID) > -1) {
-          tasker_id = data.Surveys[keys[i]].Tasker_ID;
-          institute_id = data.Surveys[keys[i]].Institute_ID;
+          if (tasker_id === -1) {
+            tasker_id = data.Surveys[keys[i]].Tasker_ID;
+          }
+          
+          if (institute_id === -1) {
+            institute_id = data.Surveys[keys[i]].Institute_ID;
+          }
           
           if (instituteSelector > 0 && instituteSelector != parseInt(institute_id)) {
+            tasker_id = -1;
+            institute_id = -1;
             continue;
           }
           
           if (taskerSelector > 0 && taskerSelector != parseInt(tasker_id)) {
+            tasker_id = -1;
+            institute_id = -1;            
             continue;
           }
           
