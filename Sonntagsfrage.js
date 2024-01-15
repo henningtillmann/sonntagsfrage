@@ -5,8 +5,8 @@
 
 Sonntagsfrage iOS Widget
 von Henning Tillmann, henning-tillmann.de
-v2.0.1
-5. Januar 2022
+v2.0.2
+15. Januar 2024
 
 GitHub für Updates:
 https://github.com/henningtillmann/sonntagsfrage
@@ -189,7 +189,8 @@ AB HIER NICHTS ÄNDERN!
 const apiCompact = 'https://api.dawum.de/newest_surveys.json';
 const apiFull = 'https://api.dawum.de/';
 const api = (showComparative ? apiFull : apiCompact);
-const version = '2.0.1';
+const version = '2.0.2';
+let data;
 
 const deviationMarkers = [        
       { maxVal: 0.5, glyphPos: '→', glyphNeg: '→' },
@@ -216,7 +217,8 @@ const parties = [
       { "id": "13", "name": "Partei", "color": "#ee3333" },
       { "id": "14", "name": "BVB/FW", "color": "#ffa500" },
       { "id": "15", "name": "Tier", "color": "#005f6a" },
-      { "id": "16", "name": "BIW", "color": "#000088" }
+      { "id": "16", "name": "BIW", "color": "#000088" },
+      { "id": "23", "name": "BSW", "color": "#ff6e00" }
     ];
   
 const widgetSize = (config.widgetFamily ? config.widgetFamily : 'large');
@@ -264,7 +266,7 @@ async function createWidget() {
   list.url = 'scriptable:///run/Sonntagsfrage/?p=' + requestParliaments;
   
   if (typeof(requestParliaments) === 'string' && requestParliaments.indexOf(',') > 0) {
-    requestParliaments = requestParliaments.replace(/[^0-9,]/g, '');
+    requestParliamens = requestParliaments.replace(/[^0-9,]/g, '');
     requestParliaments = requestParliaments.split(',');
   }
   
@@ -331,13 +333,19 @@ async function createWidget() {
     const v = parseFloat(poll.results[i][1]);
     
     if (p === "0" && (widgetSize != 'large' && ignoreOthersOnSmallAndMedium)) {
-      if (maxParties < poll.results.length) {
-        maxParties++;
-        continue;
-      }
+      maxParties++;
+      continue;
     }
 
-    const party = parties.find(elem => elem.id === p);
+    let party = parties.find(elem => elem.id === p);
+
+    if (party === undefined) {
+       party = {
+        "id": p,
+        "name": getUnknownPartyName(p),
+        "color": "#bbbbbb"
+       };
+    }
     
     const bodyItem = bodyColumns[col].addStack(); 
     
@@ -490,7 +498,6 @@ async function createWidget() {
 
      
 async function getPollData(parliament_ids) {
-  let data;
   let date;
   let tasker_id = -1;
   let institute_id = -1;
@@ -706,6 +713,12 @@ function getDeviationMarker(present, past) {
     }  
   }
   return '*';
+}
+
+function getUnknownPartyName(id) {
+  if (data) {
+    return data.Parties[id].Shortcut;
+  } 
 }
 
 // Letzte Zeile.
