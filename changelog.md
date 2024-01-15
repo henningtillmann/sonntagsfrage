@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.2
+15. Januar 2024
+- BSW-Partei hinzugefügt
+- Zukünftig werden neue Parteien, auch wenn sie noch nicht im Skript vermerkt sind, angezeigt und erzeugen keinen Fehler (Farbe ist allerdings immer grau)
+- Bugfix: 5 Parteien und Sonstige werden nun korrekt dargestellt (danke @Metal-Snake)
+
 ## 2.0.1
 5. Januar 2022
 - Bugfix: Falsches Institut / Auftraggeber bei Nicht-Bundestagswahl-Umfragen wurde angezeigt. Es wurden die Daten der vorherigen Umfrage, nicht der aktuellen angezeigt.
