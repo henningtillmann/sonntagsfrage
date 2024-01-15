@@ -264,7 +264,7 @@ async function createWidget() {
   list.url = 'scriptable:///run/Sonntagsfrage/?p=' + requestParliaments;
   
   if (typeof(requestParliaments) === 'string' && requestParliaments.indexOf(',') > 0) {
-    requestParliamens = requestParliaments.replace(/[^0-9,]/g, '');
+    requestParliaments = requestParliaments.replace(/[^0-9,]/g, '');
     requestParliaments = requestParliaments.split(',');
   }
   
@@ -331,8 +331,10 @@ async function createWidget() {
     const v = parseFloat(poll.results[i][1]);
     
     if (p === "0" && (widgetSize != 'large' && ignoreOthersOnSmallAndMedium)) {
-      maxParties++;
-      continue;
+      if (maxParties < poll.results.length) {
+        maxParties++;
+        continue;
+      }
     }
 
     const party = parties.find(elem => elem.id === p);
