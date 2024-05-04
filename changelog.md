@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.3
+4. Mai 2024
+- Bugfix: Bei den Tendenzpfeilen gab es ein Problem. Bei der Bundestagswahl wurde als Referenz nicht die letzte Umfrage des selben Instituts verwendet, sondern die letzte Umfrage überhaupt (unabhängig von dem Institut). Eine sehr bekannte Spitzenpolitikerin hat mich auf den Fehler hingewiesen. Fehler ist nun behoben. Danke!
+
 ## 2.0.2
 15. Januar 2024
 - BSW-Partei hinzugefügt
