@@ -5,8 +5,8 @@
 
 Sonntagsfrage iOS Widget
 von Henning Tillmann, henning-tillmann.de
-v2.0.2
-15. Januar 2024
+v2.0.3
+4. Mai 2024
 
 GitHub für Updates:
 https://github.com/henningtillmann/sonntagsfrage
@@ -673,8 +673,13 @@ async function getPollData(parliament_ids) {
           
             if (showComparative) {
               parliament_ids = [data.Surveys[keys[i]].Parliament_ID];
-              if (parseInt(data.Surveys[keys[i]].Parliament_ID) === 0)
-                instituteSelector = parseInt(institute_id);
+            
+               if (parseInt(data.Surveys[keys[i]].Parliament_ID) === 0) {
+               	instituteSelector = parseInt(institute_id);
+            	tasker_id = -1;
+                  institute_id = -1;
+               }
+            
               continue;
             }
           } else {
