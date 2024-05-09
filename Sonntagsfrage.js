@@ -189,7 +189,7 @@ AB HIER NICHTS ÄNDERN!
 const apiCompact = 'https://api.dawum.de/newest_surveys.json';
 const apiFull = 'https://api.dawum.de/';
 const api = (showComparative ? apiFull : apiCompact);
-const version = '2.0.2';
+const version = '2.0.3';
 let data;
 
 const deviationMarkers = [        
