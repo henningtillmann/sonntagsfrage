@@ -191,6 +191,7 @@ const apiFull = 'https://api.dawum.de/';
 const api = (showComparative ? apiFull : apiCompact);
 const version = '2.0.3';
 let data;
+let dataFromCache = false;
 
 const deviationMarkers = [        
       { maxVal: 0.5, glyphPos: '→', glyphNeg: '→' },
@@ -218,13 +219,14 @@ const parties = [
       { "id": "14", "name": "BVB/FW", "color": "#ffa500" },
       { "id": "15", "name": "Tier", "color": "#005f6a" },
       { "id": "16", "name": "BIW", "color": "#000088" },
+      { "id": "18", "name": "Volt", "color": "#502379" },
       { "id": "23", "name": "BSW", "color": "#ff6e00" }
     ];
   
 const widgetSize = (config.widgetFamily ? config.widgetFamily : 'large');
 const widget = await createWidget();
 
-if (!config.runInWidget) {
+if (!config.runsInWidget) {
   switch(widgetSize) {
     case 'small':
     await widget.presentSmall();
@@ -247,7 +249,7 @@ async function createWidget() {
   const nextRefresh = Date.now() + (1000*60*60 * refreshHours);
   list.refreshAfterDate = new Date(nextRefresh);
   
-  if (widgetSize != 'small') {
+  if (widgetSize != 'small' && widgetSize.indexOf('accessory') !== 0) {
     list.setPadding(20, 20, 20, 20);
   }
     
@@ -280,6 +282,10 @@ async function createWidget() {
     const errorMessage = list.addText('Keine Sonntagsfrage gefunden.');
     errorMessage.font = Font.italicSystemFont(10);
     return list;    
+  }
+  
+  if (widgetSize.indexOf('accessory') === 0) {
+    return createAccessoryWidget(list, poll);
   }
   
   let headerText = (widgetSize == 'small' ? parliaments[poll.parliament_id] : 'Sonntagsfrage ' + parliaments[poll.parliament_id]);
@@ -443,6 +449,10 @@ async function createWidget() {
     diffText = 'Neueste: ' + diffText;
   }
   
+  if (dataFromCache) {
+    diffText += ' (offline)';
+  }
+  
   const footerDate = footer.addText(diffText);
   footerDate.font = Font.regularSystemFont(7);
   
@@ -478,7 +488,7 @@ async function createWidget() {
     const socketAboutWidget = socketLeft.addText('Widget von henning-tillmann.de');
     socketAboutWidget.url = 'https://www.henning-tillmann.de/sonntagsfrage-ios-widget/?v=' + version;
     socketAboutWidget.font = Font.mediumSystemFont(9);
-    socketAboutWidget.color = new Color('#efefef');
+    socketAboutWidget.textColor = new Color('#efefef');
     
     socket.addSpacer();
 
@@ -490,7 +500,7 @@ async function createWidget() {
     const socketAboutDataSource = socketRight.addText('Daten von dawum.de');
     socketAboutDataSource.url = 'https://dawum.de';
     socketAboutDataSource.font = Font.mediumSystemFont(9);
-    socketAboutDataSource.color = new Color('#efefef');
+    socketAboutDataSource.textColor = new Color('#efefef');
     socketAboutDataSource.rightAlignText();
   }
   
@@ -550,22 +560,28 @@ async function getPollData(parliament_ids) {
   }
   
   if (calculateMean) {
-    for (k = 0; k < parties.length; k++) {
+    for (let k = 0; k < parties.length; k++) {
       meanResults[parties[k].id] = 0;
       meanResultsPast[parties[k].id] = 0;
     }
   }
   
-  try {  
-    data = await new Request(api).loadJSON();
-  } catch (e) {
-    return false; 
-  }
+  data = await loadData();
         
   if (!data || !data.Database) {
     return false;  
   } else {    
-    const keys = Object.keys(data.Surveys);
+    // Nach Datum sortieren (bei gleichem Datum nach ID). Die IDs sind
+    // nicht immer chronologisch, weil DAWUM Umfragen auch nachträgt.
+    const keys = Object.keys(data.Surveys).sort((a, b) => {
+      const dateA = data.Surveys[a].Date;
+      const dateB = data.Surveys[b].Date;
+      
+      if (dateA !== dateB) {
+        return (dateA < dateB ? -1 : 1);
+      }
+      return parseInt(a) - parseInt(b);
+    });
     let results;
     
     for (let i = keys.length - 1; i >= 0; i--) {
@@ -587,8 +603,9 @@ async function getPollData(parliament_ids) {
               
               const results = Object.entries(data.Surveys[keys[i]].Results);
               
-              for (k = 0; k < results.length; k++) {
-                meanResults[parseInt(results[k][0])] += parseFloat(results[k][1]);
+              for (let k = 0; k < results.length; k++) {
+                const id = parseInt(results[k][0]);
+                meanResults[id] = (meanResults[id] || 0) + parseFloat(results[k][1]);
               }
             }           
           } else {
@@ -600,8 +617,9 @@ async function getPollData(parliament_ids) {
                 
                 const results = Object.entries(data.Surveys[keys[i]].Results);
                 
-                for (k = 0; k < results.length; k++) {
-                  meanResultsPast[parseInt(results[k][0])] += parseFloat(results[k][1]);  
+                for (let k = 0; k < results.length; k++) {
+                  const id = parseInt(results[k][0]);
+                  meanResultsPast[id] = (meanResultsPast[id] || 0) + parseFloat(results[k][1]);  
                 }                               
               }
               
@@ -610,7 +628,7 @@ async function getPollData(parliament_ids) {
            
             const results = [];
 
-            for (k = 0; k < meanResults.length; k++) {
+            for (let k = 0; k < meanResults.length; k++) {
               let p;
                 
               if (showComparative && meanResultsPast[k]) {
@@ -707,6 +725,104 @@ async function getPollData(parliament_ids) {
       }
     } 
   }
+}
+
+// Lädt die Daten von DAWUM und legt sie im Cache ab.
+// Ohne Verbindung wird der letzte gespeicherte Stand verwendet.
+async function loadData() {
+  const fm = FileManager.local();
+  const cacheFile = fm.joinPath(fm.cacheDirectory(), 'sonntagsfrage-' + (showComparative ? 'full' : 'compact') + '.json');
+  
+  try {
+    const json = await new Request(api).loadString();
+    const result = JSON.parse(json);
+    
+    if (result && result.Database) {
+      fm.writeString(cacheFile, json);
+      return result;
+    }
+  } catch (e) {
+  }
+  
+  try {
+    if (fm.fileExists(cacheFile)) {
+      dataFromCache = true;
+      return JSON.parse(fm.readString(cacheFile));
+    }
+  } catch (e) {
+  }
+  
+  return false;
+}
+
+// Sperrbildschirm-Widgets (ab iOS 16). Diese werden vom
+// System einfarbig dargestellt, daher nur Text.
+function createAccessoryWidget(list, poll) {
+  const entries = [];
+  
+  for (let i = 0; i < poll.results.length; i++) {
+    const p = poll.results[i][0];
+    
+    if (p === "0" && ignoreOthersOnSmallAndMedium) {
+      continue;
+    }
+    
+    const party = parties.find(elem => elem.id === p);
+    const v = parseFloat(poll.results[i][1]);
+    
+    entries.push({
+      "name": (party ? party.name : getUnknownPartyName(p)),
+      "value": (poll.is_mean ? v.toFixed(1) : v + ''),
+      "marker": (poll.has_comparative && poll.results[i][2] !== undefined ? ' ' + getDeviationMarker(v, parseFloat(poll.results[i][2])) : '')
+    });
+  }
+  
+  const headerText = parliaments[poll.parliament_id] + (poll.is_mean ? ' Ø' : '') + (dataFromCache ? ' (offline)' : '');
+  
+  switch (widgetSize) {
+    case 'accessoryInline':
+      list.addText(entries.slice(0, 3).map(e => e.name + ' ' + e.value).join(' · '));
+      break;
+    
+    case 'accessoryCircular':
+      list.addSpacer();
+      
+      if (entries.length > 0) {
+        const name = list.addText(entries[0].name);
+        name.font = Font.boldSystemFont(10);
+        name.minimumScaleFactor = 0.5;
+        name.centerAlignText();
+        
+        const value = list.addText(entries[0].value + '%');
+        value.font = Font.boldSystemFont(14);
+        value.minimumScaleFactor = 0.5;
+        value.centerAlignText();
+      }
+      
+      list.addSpacer();
+      break;
+    
+    default: {
+      const header = list.addText(headerText);
+      header.font = Font.boldSystemFont(12);
+      header.lineLimit = 1;
+      header.minimumScaleFactor = 0.7;
+      
+      for (let i = 0; i < Math.min(3, entries.length); i++) {
+        const row = list.addStack();
+        row.layoutHorizontally();
+        
+        const name = row.addText(entries[i].name);
+        name.font = Font.mediumSystemFont(12);
+        row.addSpacer();
+        
+        const value = row.addText(entries[i].value + ' %' + entries[i].marker);
+        value.font = Font.mediumSystemFont(12);
+      }
+    }
+  }
+  
+  return list;
 }
 
 function getDeviationMarker(present, past) {      
